@@ -1,0 +1,188 @@
+From b1350a385fc6aaf8082bc8005d12bfe19f2fc974 Mon Sep 17 00:00:00 2001
+From: lishuangfan13-afk <lishuangfan13@gmail.com>
+Date: Sun, 20 Sep 2026 17:02:38 +0800
+Subject: [PATCH] fix(net): stop socket churn in cron thread; disable MiMo
+ thinking
+
+Two defects surfaced while running the zhaoxi_ui demo end to end.
+
+1. cron thread created a socket every tick.
+   The periodic publisher added for NET_STATUS called
+   network_is_connected(), which opens a socket via getifaddrs().
+   On BES the network stack lives behind rpmsg, and creating a socket
+   from a second task while the agent thread holds a TLS session
+   corrupts the network mempool:
+
+       Assertion failed at /mm/mempool/mempool_multiple.c:454
+         socket -> getifaddrs -> network_is_connected -> cron_task_main
+
+   zhaoxi_ui hit the same bug earlier and was moved to file-based
+   status.  Add network_publish_cached(), which rewrites NET_STATUS
+   from the last known state without ever creating a socket, and call
+   that from the cron thread instead.
+
+2. MiMo enabled chain-of-thought by default.
+   mimo-v2.5-pro returned several hundred tokens of reasoning_content
+   per reply, inflating the response buffer and stretching each call.
+   Send the OpenAI-style chat_template_kwargs.enable_thinking=false
+   switch, gated on the MiMo host so other providers are unaffected.
+
+Verified on hardware: repeated 'ask' calls no longer assert or reset
+the board; the UI keeps receiving DIAG FILE net=CONNECTED.
+---
+ src/infra/cron_service.c    |  7 +++++--
+ src/infra/network_manager.c | 32 ++++++++++++++++++++++++++------
+ src/infra/network_manager.h | 10 ++++++++++
+ src/llm/llm_proxy.c         | 29 +++++++++++++++++++++++++++++
+ 4 files changed, 70 insertions(+), 8 deletions(-)
+
+diff --git a/src/infra/cron_service.c b/src/infra/cron_service.c
+index 841421f..b3835b0 100644
+--- a/src/infra/cron_service.c
++++ b/src/infra/cron_service.c
+@@ -543,8 +543,11 @@ static void* cron_task_main(void* arg)
+         /* Refresh the UI-visible network status file.  This thread always
+          * runs (cron does not require network), so it guarantees the file
+          * exists shortly after boot even if the interface never changes
+-         * state.  network_is_connected() publishes only on transitions. */
+-        network_is_connected();
++         * state.  network_publish_cached() only rewrites the file from
++         * the last known state and never opens a socket: calling
++         * network_is_connected() here races the agent's TLS session and
++         * corrupts the network mempool (mempool_multiple.c:454). */
++        network_publish_cached();
+     }
+ 
+     return NULL;
+diff --git a/src/infra/network_manager.c b/src/infra/network_manager.c
+index cc548ae..2b3b273 100644
+--- a/src/infra/network_manager.c
++++ b/src/infra/network_manager.c
+@@ -40,13 +40,8 @@ static int s_last_published_state = -1; /* -1 = unknown, 0 = down, 1 = up */
+  * "DISCONNECTED".  Only writes on state change to avoid hammering the
+  * filesystem from the 500 ms polling paths.  Failure is never fatal.
+  */
+-static void network_publish_status(bool connected)
++static void network_write_status_file(bool connected)
+ {
+-    int state = connected ? 1 : 0;
+-    if (state == s_last_published_state) {
+-        return;
+-    }
+-
+     FILE* f = fopen(AGENT_DATA_DIR "/NET_STATUS", "w");
+     if (f == NULL) {
+         return;
+@@ -59,9 +54,34 @@ static void network_publish_status(bool connected)
+     }
+ 
+     fclose(f);
++}
++
++static void network_publish_status(bool connected)
++{
++    int state = connected ? 1 : 0;
++    if (state == s_last_published_state) {
++        return;
++    }
++
++    network_write_status_file(connected);
+     s_last_published_state = state;
+ }
+ 
++/* Re-assert the last known network state to the UI-visible file.
++ *
++ * Safe to call from any thread, including the cron worker: unlike
++ * network_is_connected() it never creates a socket.  On BES the
++ * network stack lives behind rpmsg, and creating a socket from a
++ * second task while the agent thread holds a TLS session corrupts the
++ * network heap (mempool_multiple.c:454 assertion).  The zhaoxi_ui task
++ * hit exactly this bug and was moved to file-based status; the
++ * periodic publisher must follow the same rule.
++ */
++void network_publish_cached(void)
++{
++    network_write_status_file(s_last_published_state == 1);
++}
++
+ bool network_is_connected(void)
+ {
+     struct ifaddrs* ifa_list = NULL;
+diff --git a/src/infra/network_manager.h b/src/infra/network_manager.h
+index df9b819..1c5bb65 100644
+--- a/src/infra/network_manager.h
++++ b/src/infra/network_manager.h
+@@ -37,6 +37,16 @@ int network_wait_connected(uint32_t timeout_ms);
+ /** Return a static string with the first non-loopback IPv4 address. */
+ const char *network_get_ip(void);
+ 
++/**
++ * Re-write the UI-visible NET_STATUS file from the last known state.
++ *
++ * Never creates a socket, so it is safe to call from any task.  Use
++ * this instead of network_is_connected() on periodic/background paths:
++ * creating a socket concurrently with an active TLS session corrupts
++ * the BES network heap.
++ */
++void network_publish_cached(void);
++
+ /**
+  * Connect to a WiFi network using the NuttX wapi tool.
+  * On QEMU this is a no-op (network is provided by virtio-net).
+diff --git a/src/llm/llm_proxy.c b/src/llm/llm_proxy.c
+index 48157cc..1ccf130 100644
+--- a/src/llm/llm_proxy.c
++++ b/src/llm/llm_proxy.c
+@@ -61,6 +61,31 @@ bool is_openai_compat_host(const char* host)
+         || strstr(host, "xiaomimimo.com");
+ }
+ 
++/* MiMo enables chain-of-thought ("thinking") by default.  On this
++ * memory-constrained board the extra reasoning_content (often several
++ * hundred tokens) inflates the response, and a long generation can
++ * stall the blocking TLS read past the watchdog deadline, resetting
++ * the board mid-request.  MiMo accepts the OpenAI-style
++ * chat_template_kwargs switch to turn it off.  The key is gated on the
++ * MiMo host because other providers reject unknown request fields. */
++#define AGENT_LLM_DISABLE_THINKING 1
++
++static void apply_thinking_policy(cJSON* body, const char* host)
++{
++#if AGENT_LLM_DISABLE_THINKING
++    if (strstr(host, "xiaomimimo.com")) {
++        cJSON* kwargs = cJSON_CreateObject();
++        if (kwargs) {
++            cJSON_AddBoolToObject(kwargs, "enable_thinking", false);
++            cJSON_AddItemToObject(body, "chat_template_kwargs", kwargs);
++        }
++    }
++#else
++    (void)body;
++    (void)host;
++#endif
++}
++
+ 
+ int resp_buf_init(resp_buf_t* rb, size_t initial_cap)
+ {
+@@ -597,6 +622,8 @@ int llm_chat(const char* system_prompt, const char* messages_json,
+     else
+         cJSON_AddNumberToObject(body, "max_tokens", AGENT_LLM_MAX_TOKENS);
+ 
++    apply_thinking_policy(body, llm_host);
++
+     cJSON* messages = cJSON_Parse(messages_json);
+     if (!messages)
+         messages = cJSON_CreateArray();
+@@ -715,6 +742,8 @@ int llm_chat_tools(const char* system_prompt, cJSON* messages,
+             AGENT_LLM_MAX_TOKENS);
+     }
+ 
++    apply_thinking_policy(body, llm_host);
++
+     /* Clone messages and prepend system message */
+     cJSON* msgs = cJSON_Duplicate(messages, 1);
+     cJSON* sys_msg = cJSON_CreateObject();
+-- 
+2.34.1
+
