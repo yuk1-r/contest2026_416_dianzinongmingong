@@ -14,6 +14,5 @@ if(CONFIG_EXAMPLES_ZHAOXI_UI)
     src/zhaoxi_ui.c
     src/zhaoxi_font_20.c
     src/zhaoxi_font_22.c
-    src/zhaoxi_font_24.c
-    src/zhaoxi_font_28.c)
+    src/zhaoxi_font_24.c)
 endif()

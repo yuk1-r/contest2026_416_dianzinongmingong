@@ -14,7 +14,23 @@
   otherwise exits 1 and prints FAIL plus the missing list.
 #>
 [CmdletBinding()]
-param()
+param(
+    [string]$SymbolDefPath = "",
+    # Same base-set file passed to gen_cjk_fonts.ps1: its characters become
+    # part of the requirement, so a font regenerated without the base set
+    # fails here instead of showing tofu on the panel.
+    [string]$BaseSetFile   = "",
+    # UTF-8 file of realistic runtime strings (chat replies, reminders).
+    # Every CJK character in it must be covered by the base-set sizes.
+    [string]$SamplesFile   = "",
+    # Comma-separated sizes that carry the base set + samples (must match the
+    # value passed to gen_cjk_fonts.ps1). Other sizes are only required to
+    # cover the narrow source/asset/margin set. Default empty = all sizes.
+    [string]$BaseSizes     = "",
+    # Comma-separated sizes present in the source tree. Default empty =
+    # 20,22,24,28. Pass "20,22,24" when zhaoxi_font_28 is not generated.
+    [string]$SizeList      = ""
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -22,8 +38,16 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot  = Split-Path -Parent $ScriptDir
 $SrcDir    = Join-Path $RepoRoot 'app\zhaoxi_ui\src'
 $SymbolDef = Join-Path $RepoRoot '..\apps\graphics\lvgl\lvgl\src\font\lv_symbol_def.h'
+if ($SymbolDefPath) { $SymbolDef = $SymbolDefPath }
 
 $Sizes = @(20, 22, 24, 28)
+if ($SizeList) {
+    $Sizes = @($SizeList -split ',' | ForEach-Object { [int]$_.Trim() })
+}
+$BaseSizeSet = New-Object 'System.Collections.Generic.HashSet[int]'
+if ($BaseSizes) {
+    foreach ($s in ($BaseSizes -split ',')) { [void]$BaseSizeSet.Add([int]$s.Trim()) }
+}
 $AsciiStart = 0x20
 # lv_font_conv's --range 0x20-0x7F yields range_length 95, i.e. U+0020..U+007E.
 # U+007F (DEL) is a non-printing control code and is intentionally excluded.
@@ -43,7 +67,9 @@ function Test-IsWantedCodepoint([int]$c) {
     return (($c -ge 0x4E00 -and $c -le 0x9FFF) -or
             ($c -ge 0x3000 -and $c -le 0x303F) -or
             ($c -ge 0xFF00 -and $c -le 0xFFEF) -or
-            ($c -ge 0x2018 -and $c -le 0x201D))
+            ($c -ge 0x2018 -and $c -le 0x201D) -or
+            ($c -ge 0x00B0 -and $c -le 0x00B7) -or
+            ($c -ge 0x2014 -and $c -le 0x2026))
 }
 
 function Get-SourceFiles([string]$Dir) {
@@ -156,6 +182,22 @@ function Format-CpList($Codepoints, [int]$Max = 40) {
     return $s
 }
 
+# Characters from an optional base-set file (e.g. GB2312 level-1). They
+# cover runtime text the UI draws but that never appears in sources or asset
+# files: LLM chat replies (CHAT_OUT.txt), voice-created reminders, arbitrary
+# weather prose. Without a base set such strings render as tofu boxes.
+function Get-BaseSetCodepoints([string]$Path) {
+    $set = New-Object "System.Collections.Generic.HashSet[int]"
+    if (-not $Path) { return , $set }
+    if (-not (Test-Path -LiteralPath $Path)) { throw "Base set file not found: $Path" }
+    $text = Read-Utf8Text $Path
+    foreach ($ch in $text.ToCharArray()) {
+        $c = [int][char]$ch
+        if (Test-IsWantedCodepoint $c) { [void]$set.Add($c) }
+    }
+    return , $set
+}
+
 # ---------------------------------------------------------------------------
 # Gather requirements
 # ---------------------------------------------------------------------------
@@ -166,6 +208,16 @@ $requiredCjk = Get-CjkCodepoints $SrcDir
 if ($requiredCjk.Count -eq 0) {
     throw "No CJK characters extracted from $SrcDir - nothing to verify."
 }
+$narrowSet = New-Object "System.Collections.Generic.HashSet[int]"
+foreach ($x in $requiredCjk) { [void]$narrowSet.Add($x) }
+$NarrowRequired = @(@($narrowSet) | Sort-Object)
+$reqSet = New-Object "System.Collections.Generic.HashSet[int]"
+foreach ($x in $narrowSet) { [void]$reqSet.Add($x) }
+$baseCount = 0
+foreach ($x in (Get-BaseSetCodepoints $BaseSetFile)) { if ($reqSet.Add($x)) { $baseCount++ } }
+$sampleCount = 0
+foreach ($x in (Get-BaseSetCodepoints $SamplesFile)) { if ($reqSet.Add($x)) { $sampleCount++ } }
+$BaseRequired = @(@($reqSet) | Sort-Object)
 
 $SymbolMap = Get-LvSymbolMap $SymbolDef
 $usedFa    = Get-UsedFaCodepoints $SrcDir $SymbolMap
@@ -177,7 +229,9 @@ $requiredFa = @(@($faAll) | Sort-Object)
 Write-Host ''
 Write-Host '=== zhaoxi CJK font coverage check ==='
 Write-Host ("UI source dir       : {0}" -f $SrcDir)
-Write-Host ("Required CJK chars  : {0}" -f $requiredCjk.Count)
+Write-Host ("Required CJK narrow : {0} (source-extracted)" -f $NarrowRequired.Count)
+Write-Host ("Required CJK base   : {0} (narrow + base {1} + samples {2}) for sizes [{3}]" -f `
+    $BaseRequired.Count, $baseCount, $sampleCount, ($(if ($BaseSizes) { $BaseSizes } else { 'all' })))
 Write-Host ("Required FontAwesome: {0}" -f (($requiredFa | ForEach-Object { '0x{0:X4}' -f $_ }) -join ' '))
 Write-Host ''
 
@@ -194,7 +248,11 @@ foreach ($size in $Sizes) {
 
     $covered = Get-FontCodepoints $fontPath
 
-    $missingCjk = @($requiredCjk | Where-Object { -not $covered.Contains($_) })
+    # Base-set sizes must cover base+samples; narrow sizes only the source set.
+    $useBase = ($BaseSizeSet.Count -eq 0) -or $BaseSizeSet.Contains([int]$size)
+    $req = if ($useBase) { $BaseRequired } else { $NarrowRequired }
+
+    $missingCjk = @($req | Where-Object { -not $covered.Contains($_) })
     $missingFa  = @($requiredFa  | Where-Object { -not $covered.Contains($_) })
     $missingAscii = @()
     for ($c = $AsciiStart; $c -le $AsciiEnd; $c++) {
@@ -206,10 +264,11 @@ foreach ($size in $Sizes) {
 
     $rows += [pscustomobject]@{
         Font        = "zhaoxi_font_$size.c"
+        Mode        = if ($useBase) { 'base' } else { 'narrow' }
         Status      = $status
         TotalCps    = $covered.Count
-        RequiredCjk = $requiredCjk.Count
-        CoveredCjk  = $requiredCjk.Count - $missingCjk.Count
+        RequiredCjk = $req.Count
+        CoveredCjk  = $req.Count - $missingCjk.Count
         MissingCjk  = $missingCjk.Count
         Ascii       = if ($missingAscii.Count -eq 0) { 'OK' } else { "MISS $($missingAscii.Count)" }
         Fa          = if ($missingFa.Count -eq 0) { 'OK' } else { "MISS $($missingFa.Count)" }

@@ -16,9 +16,43 @@
 
   Verify the result with:
       powershell -ExecutionPolicy Bypass -File tools\check_cjk_coverage.ps1
+
+  Free-form runtime text (LLM chat replies drawn by the conversation log
+  since 05b2ef3d, voice-created reminders) can never be covered by source
+  or asset extraction. Pass -BaseSetFile tools\gb2312_l1.txt to union the
+  GB2312 level-1 set (3755 chars) into every font; measured cost at bpp 4
+  is roughly 10x the subset fonts (about 3 MB total), which the board
+  eMMC storage absorbs comfortably.
 #>
 [CmdletBinding()]
-param()
+param(
+    # All defaults empty: the hardcoded paths further below stay untouched.
+    [string]$LvFontConvPath = "",
+    [string]$CjkFontPath    = "",
+    [string]$FaWoffPath     = "",
+    [string]$SymbolDefPath  = "",
+    [string]$OutDirOverride = "",
+    # UTF-8 file whose characters are unioned into every generated font.
+    # Pass tools/gb2312_l1.txt (3755 chars) to cover free-form runtime text
+    # (LLM chat replies drawn by the conversation log since 05b2ef3d,
+    # voice-created reminders) that no source/asset extraction can predict.
+    [string]$BaseSetFile    = "",
+    # Optional UTF-8 file of representative free-runtime strings (chat
+    # replies, voice reminders). Unioned on top of the base set so any
+    # character the team explicitly promises to render is guaranteed
+    # present, including GB2312 level-2 rarities the base set misses.
+    [string]$SamplesFile    = "",
+    # Comma-separated font sizes that receive the base set + samples.
+    # Free-form runtime text is only ever drawn with zhaoxi_font_20 (weather /
+    # reminder / chat log / textarea / settings body); font_22 (hardcoded
+    # greeting templates) and font_24 (fixed titles + nav icons) need only the
+    # narrow source-extracted set. Default empty = base applied to every size.
+    [string]$BaseSizes      = "",
+    # Comma-separated sizes to generate. Default empty = 20,22,24,28.
+    # zhaoxi_font_28 is declared but never assigned in zhaoxi_ui.c (the clock
+    # uses lv_font_montserrat_48), so pass "20,22,24" to stop shipping it.
+    [string]$SizeList       = ""
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -32,6 +66,11 @@ $LvFontConv = 'C:\Users\27981\AppData\Roaming\npm\node_modules\lv_font_conv\lv_f
 $CjkFont    = 'C:\Windows\Fonts\simhei.ttf'
 $FaWoff     = 'C:\openvela_ws\openvela\apps\graphics\lvgl\lvgl\scripts\built_in_font\FontAwesome5-Solid+Brands+Regular.woff'
 $SymbolDef  = Join-Path $RepoRoot '..\apps\graphics\lvgl\lvgl\src\font\lv_symbol_def.h'
+if ($LvFontConvPath) { $LvFontConv = $LvFontConvPath }
+if ($CjkFontPath)    { $CjkFont    = $CjkFontPath }
+if ($FaWoffPath)     { $FaWoff     = $FaWoffPath }
+if ($SymbolDefPath)  { $SymbolDef  = $SymbolDefPath }
+if ($OutDirOverride) { $OutDir     = $OutDirOverride }
 
 # FontAwesome codepoints the UI has historically relied on. The set actually
 # passed to lv_font_conv is the union of this list and every LV_SYMBOL_* that
@@ -40,6 +79,13 @@ $SymbolDef  = Join-Path $RepoRoot '..\apps\graphics\lvgl\lvgl\src\font\lv_symbol
 $FaExplicit = @(61451, 61452, 61459, 61461, 61561, 61683, 61931)
 
 $Sizes = @(20, 22, 24, 28)
+if ($SizeList) {
+    $Sizes = @($SizeList -split ',' | ForEach-Object { [int]$_.Trim() })
+}
+$BaseSizeSet = New-Object 'System.Collections.Generic.HashSet[int]'
+if ($BaseSizes) {
+    foreach ($s in ($BaseSizes -split ',')) { [void]$BaseSizeSet.Add([int]$s.Trim()) }
+}
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -55,7 +101,9 @@ function Test-IsWantedCodepoint([int]$c) {
     return (($c -ge 0x4E00 -and $c -le 0x9FFF) -or   # CJK Unified Ideographs
             ($c -ge 0x3000 -and $c -le 0x303F) -or   # CJK punctuation
             ($c -ge 0xFF00 -and $c -le 0xFFEF) -or   # Fullwidth forms
-            ($c -ge 0x2018 -and $c -le 0x201D))      # curly quotes
+            ($c -ge 0x2018 -and $c -le 0x201D) -or   # curly quotes
+            ($c -ge 0x00B0 -and $c -le 0x00B7) -or   # degree .. middle dot (·)
+            ($c -ge 0x2014 -and $c -le 0x2026))     # em dash .. ellipsis
 }
 
 # Collect the .c/.h source files, excluding the generated font files (their
@@ -89,6 +137,9 @@ function Get-ExtraRuntimeChars() {
     # codepoints (not literal CJK) so Windows PowerShell 5.1's ANSI decoding
     # of BOM-less UTF-8 cannot mangle them.
     $extraCps = @(
+        # Structural punctuation that CJK prose and the UI note use but that
+        # no CJK Unicode range covers (U+00B7 middle dot was rendering tofu).
+        0x00B0,0x00B7,0x2014,0x2026,
         0x4E00,0x4E09,0x4E0A,0x4E0B,0x4E1C,0x4E2D,0x4E45,0x4E8C,0x4E91,0x4E94,
         0x4EAC,0x4ECA,0x4F11,0x4F1E,0x4F4E,0x4F53,0x4FDD,0x516D,0x51B0,0x51B7,
         0x51BB,0x51C9,0x5206,0x5220,0x529E,0x52A0,0x52A8,0x5317,0x5347,0x5348,
@@ -168,6 +219,22 @@ function Get-UsedFaCodepoints([string]$Dir, $SymbolMap) {
     return [pscustomobject]@{ Codepoints = $used; Names = $names }
 }
 
+# Characters from an optional base-set file (e.g. GB2312 level-1). They
+# cover runtime text the UI draws but that never appears in sources or asset
+# files: LLM chat replies (CHAT_OUT.txt), voice-created reminders, arbitrary
+# weather prose. Without a base set such strings render as tofu boxes.
+function Get-BaseSetCodepoints([string]$Path) {
+    $set = New-Object "System.Collections.Generic.HashSet[int]"
+    if (-not $Path) { return , $set }
+    if (-not (Test-Path -LiteralPath $Path)) { throw "Base set file not found: $Path" }
+    $text = Read-Utf8Text $Path
+    foreach ($ch in $text.ToCharArray()) {
+        $c = [int][char]$ch
+        if (Test-IsWantedCodepoint $c) { [void]$set.Add($c) }
+    }
+    return , $set
+}
+
 # ---------------------------------------------------------------------------
 # Preflight
 # ---------------------------------------------------------------------------
@@ -208,9 +275,20 @@ $assetCount = 0
 foreach ($c in (Get-AssetCjkCodepoints $AssetDir)) { if ($allCjk.Add($c)) { $assetCount++ } }
 $extraCount = 0
 foreach ($c in (Get-ExtraRuntimeChars)) { if ($allCjk.Add($c)) { $extraCount++ } }
-$CjkCodepoints = @($allCjk) | Sort-Object
-
-$CjkChars = -join [char[]]$CjkCodepoints
+# Snapshot the narrow set (source + assets + margin) BEFORE widening with the
+# base set, so sizes that never draw free-form text can stay small.
+$narrowCjk = New-Object 'System.Collections.Generic.HashSet[int]'
+foreach ($c in $allCjk) { [void]$narrowCjk.Add($c) }
+$baseCount = 0
+foreach ($c in (Get-BaseSetCodepoints $BaseSetFile)) { if ($allCjk.Add($c)) { $baseCount++ } }
+$sampleCount = 0
+if ($SamplesFile) {
+    foreach ($c in (Get-BaseSetCodepoints $SamplesFile)) { if ($allCjk.Add($c)) { $sampleCount++ } }
+}
+$NarrowCodepoints = @($narrowCjk) | Sort-Object
+$BaseCodepoints   = @($allCjk) | Sort-Object
+$NarrowChars = -join [char[]]$NarrowCodepoints
+$BaseChars   = -join [char[]]$BaseCodepoints
 
 $SymbolMap = Get-LvSymbolMap $SymbolDef
 $UsedFa    = Get-UsedFaCodepoints $SrcDir $SymbolMap
@@ -226,8 +304,12 @@ Write-Host ("[scan] asset dir          : {0}" -f $AssetDir)
 Write-Host ("[scan] CJK from source    : {0}" -f (@(Get-CjkCodepoints $SrcDir).Count))
 Write-Host ("[scan] CJK added by assets: {0}" -f $assetCount)
 Write-Host ("[scan] CJK added by margin: {0}" -f $extraCount)
-Write-Host ("[scan] CJK codepoints     : {0}" -f $CjkCodepoints.Count)
-Write-Host ("[scan] CJK characters     : {0}" -f $CjkChars)
+Write-Host ("[scan] CJK added by base  : {0}" -f $baseCount)
+Write-Host ("[scan] CJK added by sample: {0}" -f $sampleCount)
+Write-Host ("[scan] CJK narrow codepts : {0}" -f $NarrowCodepoints.Count)
+Write-Host ("[scan] CJK base   codepts : {0}" -f $BaseCodepoints.Count)
+Write-Host ("[scan] base applied to    : {0}" -f ($(if ($BaseSizes) { $BaseSizes } else { 'all sizes' })))
+Write-Host ("[scan] sizes generated    : {0}" -f ($Sizes -join '/'))
 Write-Host ("[scan] FontAwesome used   : {0}" -f (($UsedFa.Names | Sort-Object) -join ', '))
 Write-Host ("[scan] FontAwesome ranges : {0}" -f $FaRanges)
 Write-Host ''
@@ -239,11 +321,16 @@ foreach ($size in $Sizes) {
     $out = Join-Path $OutDir ("zhaoxi_font_{0}.c" -f $size)
     $name = "zhaoxi_font_$size"
 
+    # Base set only for sizes that actually draw free-form runtime text.
+    $useBase = ($BaseSizeSet.Count -eq 0) -or $BaseSizeSet.Contains([int]$size)
+    $chars = if ($useBase) { $BaseChars } else { $NarrowChars }
+    $tag = if ($useBase) { 'base' } else { 'narrow' }
+
     $argv = @(
         $LvFontConv,
         '--font', $CjkFont,
         '--range', '0x20-0x7F',
-        '--symbols', $CjkChars,
+        '--symbols', $chars,
         '--font', $FaWoff,
         '-r', $FaRanges,
         '--size', "$size",
@@ -254,7 +341,7 @@ foreach ($size in $Sizes) {
         '--no-compress'
     )
 
-    Write-Host ("[gen] {0} (size {1}) -> {2}" -f $name, $size, $out)
+    Write-Host ("[gen] {0} (size {1}, {2}) -> {3}" -f $name, $size, $tag, $out)
     & node @argv
     if ($LASTEXITCODE -ne 0) {
         throw "lv_font_conv failed for size $size (exit $LASTEXITCODE)"

@@ -15,7 +15,6 @@
 LV_FONT_DECLARE(zhaoxi_font_20);
 LV_FONT_DECLARE(zhaoxi_font_22);
 LV_FONT_DECLARE(zhaoxi_font_24);
-LV_FONT_DECLARE(zhaoxi_font_28);
 
 /* ── Screen dimensions ──────────────────────────────────────── */
 #define SCREEN_W 454
@@ -84,6 +83,14 @@ static int circle_fit_w(int cy, int h, int want)
 #define CHAT_IN_FILE_ALT   DATA_DIR_FALLBACK "/CHAT_IN.txt"
 #define CHAT_OUT_FILE      DATA_DIR_PRIMARY "/CHAT_OUT.txt"
 #define CHAT_OUT_FILE_ALT  DATA_DIR_FALLBACK "/CHAT_OUT.txt"
+/* Voice (push-to-talk) contract with the agent voice channel:
+ *  PTT_FILE    - UI writes "1" while the bar is held, "0" on release/cancel.
+ *  VOICE_IN_FILE - agent ASR writes the finalized transcript here; the UI
+ *                  reads and clears it when the hold ends.  In the PC
+ *                  simulator (no mic) a rotating sample phrase is used so
+ *                  the whole path stays testable. */
+#define PTT_FILE           DATA_DIR_PRIMARY "/PTT"
+#define VOICE_IN_FILE      DATA_DIR_PRIMARY "/VOICE_IN.txt"
 
 /* ── Static UI elements ─────────────────────────────────────── */
 static lv_obj_t *g_clock_label;
@@ -100,8 +107,9 @@ static lv_obj_t *g_nav_lbl[3];
 
 static lv_obj_t *g_reminder_label;
 static lv_obj_t *g_chat_log;
-static lv_obj_t *g_chat_ta;
-static lv_obj_t *g_chat_kb;
+static lv_obj_t *g_ptt_btn;          /* hold-to-talk bar (replaces keyboard) */
+static lv_obj_t *g_ptt_lbl;          /* its caption                          */
+static bool      g_ptt_active;       /* finger currently holding the bar     */
 
 static lv_obj_t *g_set_net_label;
 static lv_obj_t *g_set_task_label;
@@ -532,54 +540,111 @@ static void build_home_tile(lv_obj_t *tile)
     create_info_cards(tile);
 }
 
-/* ── Chat tile (local only, no agent round-trip) ────────────── */
-static void chat_send(void)
+/* ── Chat tile (voice push-to-talk, no on-screen keyboard) ──── */
+
+/* Submit one user turn: append to the log and hand it to the agent through
+ * the file bridge (the agent replies into CHAT_OUT.txt, picked up by poll). */
+static void chat_submit(const char *txt)
 {
-    if (g_chat_ta == NULL) return;
+    if (txt == NULL || txt[0] == '\0') return;
+    LV_LOG_USER("INPUTDBG: %s", txt);
 
-    const char *txt = lv_textarea_get_text(g_chat_ta);
-    if (txt != NULL && txt[0] != '\0') {
-        LV_LOG_USER("INPUTDBG: %s", txt);
+    size_t cur = strlen(g_chat_log_buf);
+    size_t add = strlen(txt);
+    if (cur + add + 6 < sizeof(g_chat_log_buf)) {
+        strcat(g_chat_log_buf, "\n> ");
+        strcat(g_chat_log_buf, txt);
+    }
+    if (g_chat_log) lv_label_set_text(g_chat_log, g_chat_log_buf);
 
-        size_t cur = strlen(g_chat_log_buf);
-        size_t add = strlen(txt);
-        if (cur + add + 6 < sizeof(g_chat_log_buf)) {
-            strcat(g_chat_log_buf, "\n> ");
-            strcat(g_chat_log_buf, txt);
-        }
-        if (g_chat_log) lv_label_set_text(g_chat_log, g_chat_log_buf);
-        lv_textarea_set_text(g_chat_ta, "");
-
-        /* Hand the question to the agent through the file bridge.  The
-         * agent replies into CHAT_OUT.txt, picked up by poll_timer_cb. */
-        g_chat_seq++;
-        const char *path = CHAT_IN_FILE;
-        FILE *fp = fopen(path, "w");
-        if (fp == NULL) {
-            path = CHAT_IN_FILE_ALT;
-            fp = fopen(path, "w");
-        }
-        if (fp != NULL) {
-            fprintf(fp, "%ld\n%s\n", g_chat_seq, txt);
-            fclose(fp);
-            g_chat_pending = true;
-            LV_LOG_USER("DIAG CHAT tx seq=%ld text=%s", g_chat_seq, txt);
-        } else {
-            LV_LOG_USER("DIAG CHAT tx failed (no file)");
-        }
+    g_chat_seq++;
+    const char *path = CHAT_IN_FILE;
+    FILE *fp = fopen(path, "w");
+    if (fp == NULL) {
+        path = CHAT_IN_FILE_ALT;
+        fp = fopen(path, "w");
+    }
+    if (fp != NULL) {
+        fprintf(fp, "%ld\n%s\n", g_chat_seq, txt);
+        fclose(fp);
+        g_chat_pending = true;
+        LV_LOG_USER("DIAG CHAT tx seq=%ld text=%s", g_chat_seq, txt);
+    } else {
+        LV_LOG_USER("DIAG CHAT tx failed (no file)");
     }
 }
 
-static void chat_ready_cb(lv_event_t *e)
+/* Tell the agent voice channel whether the talk bar is held (push-to-talk). */
+static void voice_ptt_set(bool active)
 {
-    if (lv_event_get_code(e) != LV_EVENT_READY) return;
-    chat_send();
+    FILE *fp = fopen(PTT_FILE, "w");
+    if (fp != NULL) {
+        fputc(active ? '1' : '0', fp);
+        fclose(fp);
+    }
+    LV_LOG_USER("DIAG PTT %s", active ? "on" : "off");
 }
 
-static void chat_send_cb(lv_event_t *e)
+/* Take the finalized ASR transcript and clear its file.  The PC simulator
+ * has no mic, so rotate through sample phrases to keep the path testable. */
+static const char *voice_take_transcript(void)
 {
-    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-    chat_send();
+#ifdef __NuttX__
+    static char buf[256];
+    buf[0] = '\0';
+    FILE *fp = fopen(VOICE_IN_FILE, "r");
+    if (fp != NULL) {
+        if (fgets(buf, sizeof(buf), fp) == NULL) buf[0] = '\0';
+        fclose(fp);
+        remove(VOICE_IN_FILE);
+        size_t n = strlen(buf);
+        while (n > 0 && (buf[n - 1] == '\n' || buf[n - 1] == '\r')) buf[--n] = '\0';
+        return buf;
+    }
+    return "";
+#else
+    static const char *sim_phrases[] = {
+        "明天傍晚有骤雨，记得带伞",
+        "帮我记一下晚上八点给板子换喇叭",
+        "今天天气怎么样",
+    };
+    static int idx = 0;
+    const char *p = sim_phrases[idx % 3];
+    idx++;
+    return p;
+#endif
+}
+
+static void ptt_set_caption(bool active)
+{
+    if (g_ptt_lbl) {
+        lv_label_set_text(g_ptt_lbl, active ? "聆听中… 松开发送" : "按住 说话");
+    }
+    if (g_ptt_btn) {
+        lv_obj_set_style_bg_color(g_ptt_btn, active ? COLOR_ORANGE : COLOR_CARD, 0);
+    }
+}
+
+static void ptt_event_cb(lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_PRESSED) {
+        g_ptt_active = true;
+        ptt_set_caption(true);
+        voice_ptt_set(true);
+    } else if (code == LV_EVENT_RELEASED) {
+        if (g_ptt_active) {
+            voice_ptt_set(false);
+            chat_submit(voice_take_transcript());
+        }
+        g_ptt_active = false;
+        ptt_set_caption(false);
+    } else if (code == LV_EVENT_PRESS_LOST) {
+        /* finger slid off the bar: cancel, submit nothing */
+        g_ptt_active = false;
+        voice_ptt_set(false);
+        ptt_set_caption(false);
+    }
 }
 
 static void build_chat_tile(lv_obj_t *tile)
@@ -593,57 +658,38 @@ static void build_chat_tile(lv_obj_t *tile)
     lv_label_set_text(g_reminder_label, "提醒：暂无");
     lv_obj_set_style_text_color(g_reminder_label, COLOR_ORANGE, 0);
     lv_obj_set_style_text_font(g_reminder_label, &zhaoxi_font_20, 0);
-    lv_obj_set_width(g_reminder_label, 220);
     lv_obj_set_style_text_align(g_reminder_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(g_reminder_label, LV_LABEL_LONG_DOT);
+    lv_obj_set_size(g_reminder_label, 220, 48);   /* bounded: max 2 lines, dots beyond */
     lv_obj_align(g_reminder_label, LV_ALIGN_TOP_MID, 0, 36);
 
-    /* Input row: textarea + send, centered as a ~292px group */
-    const int row_w = 292;
-    const int row_h = 44;
-    const int row_y = 66;
-    const int send_w = 84;
-    const int gap = 10;
-
-    g_chat_ta = lv_textarea_create(tile);
-    lv_obj_set_size(g_chat_ta, row_w - send_w - gap, row_h);
-    lv_obj_align(g_chat_ta, LV_ALIGN_TOP_MID, -(send_w + gap) / 2, row_y);
-    lv_textarea_set_one_line(g_chat_ta, true);
-    lv_textarea_set_placeholder_text(g_chat_ta, "输入内容...");
-    lv_obj_set_style_text_font(g_chat_ta, &zhaoxi_font_20, 0);
-    lv_obj_add_event_cb(g_chat_ta, chat_ready_cb, LV_EVENT_READY, NULL);
-
-    lv_obj_t *send = lv_btn_create(tile);
-    lv_obj_set_size(send, send_w, row_h);
-    lv_obj_align(send, LV_ALIGN_TOP_MID, (row_w - send_w) / 2, row_y);
-    lv_obj_set_style_bg_color(send, COLOR_ACCENT, 0);
-    lv_obj_set_style_radius(send, 12, 0);
-    lv_obj_set_style_shadow_width(send, 0, 0);
-    lv_obj_add_event_cb(send, chat_send_cb, LV_EVENT_CLICKED, NULL);
-
-    lv_obj_t *send_lbl = lv_label_create(send);
-    lv_label_set_text(send_lbl, "发送");
-    lv_obj_set_style_text_color(send_lbl, COLOR_BG, 0);
-    lv_obj_set_style_text_font(send_lbl, &zhaoxi_font_20, 0);
-    lv_obj_align(send_lbl, LV_ALIGN_CENTER, 0, 0);
-
-    /* Conversation log */
+    /* Conversation log (taller now that the keyboard is gone) */
     strncpy(g_chat_log_buf, "对话记录：", sizeof(g_chat_log_buf) - 1);
     g_chat_log = lv_label_create(tile);
-    lv_obj_set_size(g_chat_log, 300, 68);
-    lv_obj_align(g_chat_log, LV_ALIGN_TOP_MID, 0, 112);
+    lv_obj_set_size(g_chat_log, 300, 108);
+    lv_obj_align(g_chat_log, LV_ALIGN_TOP_MID, 0, 88);
     lv_label_set_long_mode(g_chat_log, LV_LABEL_LONG_DOT);
     lv_label_set_text(g_chat_log, g_chat_log_buf);
     lv_obj_set_style_text_color(g_chat_log, COLOR_TEXT, 0);
     lv_obj_set_style_text_font(g_chat_log, &zhaoxi_font_20, 0);
 
-    /* Keyboard: kept inside the lower arc and above the floating nav pill
-     * (a wider/taller keyboard would clip at the bottom corners). */
-    g_chat_kb = lv_keyboard_create(tile);
-    lv_obj_set_size(g_chat_kb, 312, 160);
-    lv_obj_align(g_chat_kb, LV_ALIGN_TOP_MID, 0, 186);
-    lv_obj_set_style_radius(g_chat_kb, 16, 0);
-    lv_keyboard_set_textarea(g_chat_kb, g_chat_ta);
+    /* Hold-to-talk bar: press-and-hold = push-to-talk voice input.
+     * Replaces the textarea + send button + on-screen keyboard. */
+    g_ptt_btn = lv_btn_create(tile);
+    lv_obj_set_size(g_ptt_btn, 292, 56);
+    lv_obj_align(g_ptt_btn, LV_ALIGN_TOP_MID, 0, 200);
+    lv_obj_set_style_bg_color(g_ptt_btn, COLOR_CARD, 0);
+    lv_obj_set_style_radius(g_ptt_btn, 28, 0);
+    lv_obj_set_style_shadow_width(g_ptt_btn, 0, 0);
+    lv_obj_add_event_cb(g_ptt_btn, ptt_event_cb, LV_EVENT_PRESSED, NULL);
+    lv_obj_add_event_cb(g_ptt_btn, ptt_event_cb, LV_EVENT_RELEASED, NULL);
+    lv_obj_add_event_cb(g_ptt_btn, ptt_event_cb, LV_EVENT_PRESS_LOST, NULL);
+
+    g_ptt_lbl = lv_label_create(g_ptt_btn);
+    lv_obj_set_style_text_font(g_ptt_lbl, &zhaoxi_font_22, 0);
+    lv_obj_set_style_text_color(g_ptt_lbl, COLOR_TEXT, 0);
+    lv_obj_align(g_ptt_lbl, LV_ALIGN_CENTER, 0, 0);
+    ptt_set_caption(false);
 }
 
 /* ── Settings tile (read-only info) ─────────────────────────── */
