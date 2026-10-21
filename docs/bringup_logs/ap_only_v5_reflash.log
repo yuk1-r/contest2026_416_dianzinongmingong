@@ -1,0 +1,234 @@
+[0] parse_opt/
+
+WARNING: Flash dual chip mode enabled while sector size (32 KiB) too small
+	(64 KiB or above recommended)
+
+[15] config_serial_port/MaxBaud=0x10000000 MaxRxQ=0 MaxTxQ=0 CurRxQ=4096 CurTxQ=0
+[15] config_serial_port/SvcMask=0x1 SubType=0x1 Capa=0xff
+[15] config_serial_port/Settable Params=0x7f Baud=0x10066b70 Data=0xc StopParity=0x1f05
+[15] config_serial_port/Baud=921600 AbortOnErr=0 CtsEn=0 RtsEn=1
+[94] config_serial_port/Serial port successfully reconfigured
+[94] init_timeout/OldTimeOut: RItv=-1 RTotal=-2 RMult=-1 WTotal=0 WMult=0
+[94] init_timeout/NewTimeOut: RItv=2000 RTotal=2000 RMult=0 WTotal=500 WMult=0
+[125] prepare_data/--- Init sector size ---
+[125] prepare_data/sector_size=0x00008000
+[125] prepare_data/--- Parse secure boot version ---
+[125] parse_secure_boot_version/Got secure boot version from code: 5
+[125] prepare_data/--- Prepare code msg ---
+[125] prepare_data/--- Prepare burn data msg ---
+[125] prepare_data/--- Prepare magic numbers ---
+[125] prepare_data/--- Prepare security register burn data msg ---
+[125] prepare_data/--- Prepare security register magic numbers ---
+[125] set_timeout/ReadTimeout : RTotal=-1
+[125] set_timeout/WriteTimeout: WTotal=2000
+[125] main_loop/------ Wait for SYNC started ------
+[168687] wait_com_event/GetOverlappedResult WaitCommEvent: 0x00C0
+[168687] wait_com_event/GetOverlappedResult WaitCommEvent: 0x00C0
+[169047] handle_sync_msg/[SYNC]: Started
+[169047] handle_sync_msg/SYNC version: 0x0100
+[169047] set_timeout/ReadTimeout : RTotal=2000
+[169047] main_loop/------ Send SYNC reply ------
+[169047] main_loop/------ Wait for SYNC confirm ------
+[169078] handle_sync_msg/[SYNC]: Confirmed
+[169078] handle_sync_msg/SYNC confirm version: 0x0100
+[169078] main_loop/------ Run programmer ------
+[169078] run_programmer/--- Send CODE INFO msg: addr=0x0410061C len=69272 ---
+[169078] run_programmer/--- Recv CODE INFO reply msg ---
+[169094] run_programmer/--- Send CODE msg ---
+[169094] set_timeout/WriteTimeout: WTotal=5000
+[169094] set_timeout/WriteTimeout: WTotal=2000
+[169094] run_programmer/--- Recv CODE reply msg ---
+[169094] set_timeout/ReadTimeout : RTotal=2000
+[169875] set_timeout/ReadTimeout : RTotal=2000
+[169875] run_programmer/--- Send RUN msg ---
+[169875] programmer_sync/--- Recv SECTOR SIZE msg ---
+[169875] set_timeout/ReadTimeout : RTotal=2000
+[169922] recv_reply/Recv NOTIF msg (len=6):
+0: 00 02 03 00 00 00
+
+[169937] handle_pgm_sync_msg/Programmer version=0x0105 sector_size=0x0003D000
+[169937] main_loop/------ Programmer running consumes 859 ms ------
+[169937] get_flash_ctrl_info/--- Send FLASH_CMD_GET_CTRL_INFO msg ---
+[169937] get_flash_ctrl_info/--- Recv FLASH_CMD_GET_CTRL_INFO reply msg ---
+[169953] get_flash_ctrl_info/FLASH_CMD_GET_CTRL_INFO reply: 03 00 03
+[169953] programmer_config/flash chip cnt=3 boot_index=0 valid_map=0x03
+[169953] get_flash_id/--- Send FLASH_CMD_GET_ID msg: index=0 ---
+[169953] get_flash_id/--- Recv FLASH_CMD_GET_ID reply msg ---
+[169969] get_flash_id/FLASH_CMD_GET_ID reply: C8-63-17
+[169969] get_flash_size/--- Send FLASH_CMD_GET_SIZE msg: index=0 ---
+[169969] get_flash_size/--- Recv FLASH_CMD_GET_SIZE reply msg ---
+[169984] get_flash_size/FLASH_CMD_GET_SIZE reply: 8388608
+[169984] get_flash_id/--- Send FLASH_CMD_GET_ID msg: index=1 ---
+[169984] get_flash_id/--- Recv FLASH_CMD_GET_ID reply msg ---
+[170000] get_flash_id/FLASH_CMD_GET_ID reply: C8-63-16
+[170000] get_flash_size/--- Send FLASH_CMD_GET_SIZE msg: index=1 ---
+[170000] get_flash_size/--- Recv FLASH_CMD_GET_SIZE reply msg ---
+[170015] get_flash_size/FLASH_CMD_GET_SIZE reply: 4194304
+[170015] sys_cmd_set_dld_rate/--- Send SYS SET DLD RATE msg ---
+[170015] sys_cmd_set_dld_rate/--- Recv SYS SET DLD RATE reply msg ---
+[170031] config_serial_port/MaxBaud=0x10000000 MaxRxQ=0 MaxTxQ=0 CurRxQ=4096 CurTxQ=0
+[170031] config_serial_port/SvcMask=0x1 SubType=0x1 Capa=0xff
+[170031] config_serial_port/Settable Params=0x7f Baud=0x10066b70 Data=0xc StopParity=0x1f05
+[170031] config_serial_port/Baud=2000000 AbortOnErr=0 CtsEn=0 RtsEn=1
+[170109] config_serial_port/Serial port successfully reconfigured
+[170109] main_loop/------ Set Dual Chip starts ------
+[170109] flash_cmd_set_dual_chip/--- Send FLASH_CMD_SET_DUAL_CHIP msg: index=0 ---
+[170109] flash_cmd_set_dual_chip/--- Recv FLASH_CMD_SET_DUAL_CHIP reply msg ---
+[170125] main_loop/------ Set Dual Chip consumes 16 ms ------
+[170125] main_loop/------ Burn File starts ------
+[170125] burn_file/--- Send ERASE BURN START msg: addr=0x30190000 len=2127680 ---
+[170125] burn_file/--- Recv ERASE BURN START reply msg ---
+[170140] set_timeout/ReadTimeout : RTotal=2000
+[170140] set_timeout/WriteTimeout: WTotal=2000
+[170140] burn_data/--- Send ERASE BURN DATA msg: sec_seq=0 sec_len=32768 ---
+[170422] burn_data/--- Send ERASE BURN DATA msg: sec_seq=1 sec_len=32768 ---
+[170422] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[170609] burn_data/--- Send ERASE BURN DATA msg: sec_seq=2 sec_len=32768 ---
+[170609] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[170781] burn_data/--- Send ERASE BURN DATA msg: sec_seq=3 sec_len=32768 ---
+[170781] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[170969] burn_data/--- Send ERASE BURN DATA msg: sec_seq=4 sec_len=32768 ---
+[170969] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[171156] burn_data/--- Send ERASE BURN DATA msg: sec_seq=5 sec_len=32768 ---
+[171156] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[171344] burn_data/--- Send ERASE BURN DATA msg: sec_seq=6 sec_len=32768 ---
+[171344] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[171515] burn_data/--- Send ERASE BURN DATA msg: sec_seq=7 sec_len=32768 ---
+[171515] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[171703] burn_data/--- Send ERASE BURN DATA msg: sec_seq=8 sec_len=32768 ---
+[171703] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[171906] burn_data/--- Send ERASE BURN DATA msg: sec_seq=9 sec_len=32768 ---
+[171906] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[172078] burn_data/--- Send ERASE BURN DATA msg: sec_seq=10 sec_len=32768 ---
+[172078] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[172265] burn_data/--- Send ERASE BURN DATA msg: sec_seq=11 sec_len=32768 ---
+[172265] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[172453] burn_data/--- Send ERASE BURN DATA msg: sec_seq=12 sec_len=32768 ---
+[172453] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[172640] burn_data/--- Send ERASE BURN DATA msg: sec_seq=13 sec_len=32768 ---
+[172640] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[172812] burn_data/--- Send ERASE BURN DATA msg: sec_seq=14 sec_len=32768 ---
+[172812] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[173000] burn_data/--- Send ERASE BURN DATA msg: sec_seq=15 sec_len=32768 ---
+[173000] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[173203] burn_data/--- Send ERASE BURN DATA msg: sec_seq=16 sec_len=32768 ---
+[173203] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[173390] burn_data/--- Send ERASE BURN DATA msg: sec_seq=17 sec_len=32768 ---
+[173390] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[173594] burn_data/--- Send ERASE BURN DATA msg: sec_seq=18 sec_len=32768 ---
+[173594] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[173781] burn_data/--- Send ERASE BURN DATA msg: sec_seq=19 sec_len=32768 ---
+[173781] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[174000] burn_data/--- Send ERASE BURN DATA msg: sec_seq=20 sec_len=32768 ---
+[174000] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[174187] burn_data/--- Send ERASE BURN DATA msg: sec_seq=21 sec_len=32768 ---
+[174187] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[174375] burn_data/--- Send ERASE BURN DATA msg: sec_seq=22 sec_len=32768 ---
+[174375] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[174594] burn_data/--- Send ERASE BURN DATA msg: sec_seq=23 sec_len=32768 ---
+[174594] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[174781] burn_data/--- Send ERASE BURN DATA msg: sec_seq=24 sec_len=32768 ---
+[174781] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[174984] burn_data/--- Send ERASE BURN DATA msg: sec_seq=25 sec_len=32768 ---
+[174984] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[175172] burn_data/--- Send ERASE BURN DATA msg: sec_seq=26 sec_len=32768 ---
+[175172] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[175375] burn_data/--- Send ERASE BURN DATA msg: sec_seq=27 sec_len=32768 ---
+[175375] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[175578] burn_data/--- Send ERASE BURN DATA msg: sec_seq=28 sec_len=32768 ---
+[175578] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[175765] burn_data/--- Send ERASE BURN DATA msg: sec_seq=29 sec_len=32768 ---
+[175765] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[175953] burn_data/--- Send ERASE BURN DATA msg: sec_seq=30 sec_len=32768 ---
+[175953] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[176172] burn_data/--- Send ERASE BURN DATA msg: sec_seq=31 sec_len=32768 ---
+[176172] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[176359] burn_data/--- Send ERASE BURN DATA msg: sec_seq=32 sec_len=32768 ---
+[176359] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[176562] burn_data/--- Send ERASE BURN DATA msg: sec_seq=33 sec_len=32768 ---
+[176562] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[176765] burn_data/--- Send ERASE BURN DATA msg: sec_seq=34 sec_len=32768 ---
+[176765] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[176969] burn_data/--- Send ERASE BURN DATA msg: sec_seq=35 sec_len=32768 ---
+[176969] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[177156] burn_data/--- Send ERASE BURN DATA msg: sec_seq=36 sec_len=32768 ---
+[177156] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[177375] burn_data/--- Send ERASE BURN DATA msg: sec_seq=37 sec_len=32768 ---
+[177375] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[177562] burn_data/--- Send ERASE BURN DATA msg: sec_seq=38 sec_len=32768 ---
+[177562] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[177750] burn_data/--- Send ERASE BURN DATA msg: sec_seq=39 sec_len=32768 ---
+[177750] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[177953] burn_data/--- Send ERASE BURN DATA msg: sec_seq=40 sec_len=32768 ---
+[177953] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[178156] burn_data/--- Send ERASE BURN DATA msg: sec_seq=41 sec_len=32768 ---
+[178156] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[178359] burn_data/--- Send ERASE BURN DATA msg: sec_seq=42 sec_len=32768 ---
+[178359] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[178547] burn_data/--- Send ERASE BURN DATA msg: sec_seq=43 sec_len=32768 ---
+[178547] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[178765] burn_data/--- Send ERASE BURN DATA msg: sec_seq=44 sec_len=32768 ---
+[178765] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[178953] burn_data/--- Send ERASE BURN DATA msg: sec_seq=45 sec_len=32768 ---
+[178953] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[179140] burn_data/--- Send ERASE BURN DATA msg: sec_seq=46 sec_len=32768 ---
+[179140] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[179344] burn_data/--- Send ERASE BURN DATA msg: sec_seq=47 sec_len=32768 ---
+[179344] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[179547] burn_data/--- Send ERASE BURN DATA msg: sec_seq=48 sec_len=32768 ---
+[179547] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[179750] burn_data/--- Send ERASE BURN DATA msg: sec_seq=49 sec_len=32768 ---
+[179750] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[179937] burn_data/--- Send ERASE BURN DATA msg: sec_seq=50 sec_len=32768 ---
+[179937] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[180156] burn_data/--- Send ERASE BURN DATA msg: sec_seq=51 sec_len=32768 ---
+[180156] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[180359] burn_data/--- Send ERASE BURN DATA msg: sec_seq=52 sec_len=32768 ---
+[180359] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[180547] burn_data/--- Send ERASE BURN DATA msg: sec_seq=53 sec_len=32768 ---
+[180547] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[180750] burn_data/--- Send ERASE BURN DATA msg: sec_seq=54 sec_len=32768 ---
+[180750] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[180953] burn_data/--- Send ERASE BURN DATA msg: sec_seq=55 sec_len=32768 ---
+[180953] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[181140] burn_data/--- Send ERASE BURN DATA msg: sec_seq=56 sec_len=32768 ---
+[181140] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[181344] burn_data/--- Send ERASE BURN DATA msg: sec_seq=57 sec_len=32768 ---
+[181344] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[181547] burn_data/--- Send ERASE BURN DATA msg: sec_seq=58 sec_len=32768 ---
+[181547] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[181750] burn_data/--- Send ERASE BURN DATA msg: sec_seq=59 sec_len=32768 ---
+[181750] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[181937] burn_data/--- Send ERASE BURN DATA msg: sec_seq=60 sec_len=32768 ---
+[181937] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[182125] burn_data/--- Send ERASE BURN DATA msg: sec_seq=61 sec_len=32768 ---
+[182125] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[182328] burn_data/--- Send ERASE BURN DATA msg: sec_seq=62 sec_len=32768 ---
+[182328] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[182515] burn_data/--- Send ERASE BURN DATA msg: sec_seq=63 sec_len=32768 ---
+[182515] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[182703] burn_data/--- Send ERASE BURN DATA msg: sec_seq=64 sec_len=30528 ---
+[182703] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[182906] burn_data/--- Recv ERASE BURN DATA reply msg ---
+[183094] set_timeout/ReadTimeout : RTotal=2000
+[183094] set_timeout/WriteTimeout: WTotal=2000
+[183094] flash_cmd_burn_data/--- Send FLASH_CMD_BURN_DATA 4 msg ---
+[183094] flash_cmd_burn_data/--- Recv FLASH_CMD_BURN_DATA 4 reply msg ---
+[183109] burn_file/--- Burn magic number: addr=0x30190000 value=0xBE57EC1C ---
+[183109] main_loop/------ Burn File consumes 12984 ms ------
+[183109] sys_cmd_boot_cmd/--- Send SYS REBOOT msg ---
+[183109] sys_cmd_boot_cmd/--- Recv SYS REBOOT reply msg ---
+[183125] main_loop/
+
+
+
+====== Total processing time: 183.000000 seconds ======
+
+
+
+---------------------
+PROGRAMMING SUCCEEDED
+---------------------
+[SET_DUAL_CHIP] index=-1 flashEn=1 secRegEn=0
+[BURN+MAGIC] .\nuttx_ap.bin
+

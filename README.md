@@ -46,6 +46,8 @@ contest2026_416_dianzinongmingong/
 ├── docs/
 │   ├── development_plan.md         # 完整开发计划
 │   ├── project_introduction.md    # 作品介绍（md + docx）
+│   ├── newboard_bringup_20261021.md  # 新板 bring-up 与屏幕不发光定位记录
+│   ├── bringup_logs/              # 整包烧录日志与启动日志
 │   └── BES2800BP_development_summary.md  # 硬件/构建/烧录经验总结
 ├── logs/                   # AI Coding 日志（由 contest-log-collector 自动归集）
 ├── patches/
@@ -61,6 +63,10 @@ contest2026_416_dianzinongmingong/
 │   ├── deploy_assets.ps1        # 设备端资产串口部署（回读校验 + 自动重试）
 │   ├── gen_cjk_fonts.ps1        # 中文字体子集生成
 │   └── check_cjk_coverage.ps1   # 字体覆盖率构建闸门
+├── firmware/               # ★ 已验证可启动的 AP 镜像归档（含校验值与烧录说明）
+│   ├── nuttx_ap_v5_20260906.bin
+│   ├── SHA256SUMS.txt
+│   └── README.md
 ├── quickapp/
 │   └── hello_quickapp/     # 组委会示例快应用（保留）
 ├── contest2026_416_dianzinongmingong.xml  # repo manifest
