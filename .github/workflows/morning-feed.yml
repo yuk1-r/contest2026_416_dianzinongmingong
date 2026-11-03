@@ -24,6 +24,8 @@ concurrency:
 
 jobs:
   refresh:
+    # Opt in per repository; merging this workflow must not provision a feed.
+    if: vars.ZHAOXI_NEWS_FEED_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

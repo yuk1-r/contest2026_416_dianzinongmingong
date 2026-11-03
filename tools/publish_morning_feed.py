@@ -49,6 +49,12 @@ def main():
         if previous:body['sha']=previous['sha']
         api('/contents/candidates.json',body,'PUT')
     if os.environ.get('GITHUB_PAGES_PUBLISH')=='1':
+        site=api('/pages',missing=True)
+        if site is None:
+            print('Snapshot saved; configure Pages source news-site / before requesting deployment.')
+            return
+        if site.get('source',{}).get('branch')!=BRANCH or site['source'].get('path')!='/':
+            raise RuntimeError('Pages uses a different source; refusing to rebuild unrelated hosting')
         # GITHUB_TOKEN updates do not automatically trigger a branch Pages
         # build. Request it explicitly with the workflow's pages permission.
         api('/pages/builds',{},'POST')
