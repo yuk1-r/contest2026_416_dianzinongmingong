@@ -3,7 +3,7 @@
 import argparse
 import errno
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timezone
+from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 import hashlib
 from html.parser import HTMLParser
@@ -20,6 +20,11 @@ FEEDS = (
     ('Hugging Face', 'https://huggingface.co/blog/feed.xml'),
     ('Espressif', 'https://developer.espressif.com/blog/index.xml'),
     ('Raspberry Pi', 'https://www.raspberrypi.com/news/feed/'),
+    ('Hackaday', 'https://hackaday.com/feed/'),
+    ('Adafruit', 'https://blog.adafruit.com/feed/'),
+    ('CNX Software', 'https://www.cnx-software.com/feed/'),
+    ('Electronics Weekly', 'https://www.electronicsweekly.com/feed/'),
+    ('Seeed Studio', 'https://www.seeedstudio.com/blog/feed/'),
 )
 MAX_XML = 2 * 1024 * 1024
 ALIASES = {
@@ -68,6 +73,48 @@ def canonical(url):
     return result
 
 
+def local_name(tag):
+    """Atom feeds carry an XML namespace; RSS items usually do not."""
+    return tag.rsplit('}', 1)[-1]
+
+
+def child_text(item, *names):
+    for child in item:
+        if local_name(child.tag) in names:
+            value = (child.text or '').strip()
+            if value:
+                return value
+    return ''
+
+
+def entry_link(item):
+    fallback = ''
+    for child in item:
+        if local_name(child.tag) != 'link':
+            continue
+        href = (child.get('href') or '').strip()
+        if not href:
+            continue
+        if (child.get('rel') or 'alternate') == 'alternate':
+            return href
+        fallback = fallback or href
+    return fallback
+
+
+def published_epoch(text):
+    """RFC 822 (RSS) or ISO 8601 (Atom); anything else is skipped."""
+    text = (text or '').strip()
+    if not text:
+        raise ValueError('missing publication date')
+    try:
+        when = parsedate_to_datetime(text)
+    except (TypeError, ValueError):
+        when = datetime.fromisoformat(text.replace('Z', '+00:00'))
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return int(when.timestamp())
+
+
 def read_feed(name, url, now, opener=urlopen):
     """Stop after 15 completed items; never load the entire historical feed."""
     parser = ET.XMLPullParser(events=('end',))
@@ -89,17 +136,20 @@ def read_feed(name, url, now, opener=urlopen):
             tail = scan[-16:]
             parser.feed(chunk)
             for _, item in parser.read_events():
-                if item.tag != 'item':
+                kind = local_name(item.tag)
+                if kind not in ('item', 'entry'):
                     continue
                 count += 1
                 try:
-                    when = parsedate_to_datetime(item.findtext('pubDate') or '')
-                    if when.tzinfo is None:
-                        when = when.replace(tzinfo=timezone.utc)
-                    epoch = int(when.timestamp())
-                    link = canonical(item.findtext('link') or '')
-                    title = plain(item.findtext('title'), 120)
-                    description = plain(item.findtext('description'), 240)
+                    if kind == 'item':
+                        epoch = published_epoch(child_text(item, 'pubDate'))
+                        link = canonical(child_text(item, 'link'))
+                        description = plain(child_text(item, 'description'), 240)
+                    else:
+                        epoch = published_epoch(child_text(item, 'published', 'updated'))
+                        link = canonical(entry_link(item))
+                        description = plain(child_text(item, 'summary', 'content'), 240)
+                    title = plain(child_text(item, 'title'), 120)
                     if title and description and now - 172800 <= epoch <= now + 300:
                         rows.append({'id': hashlib.sha256(link.encode()).hexdigest(),
                                      'title': title, 'url': link, 'source': name[:40],
@@ -125,7 +175,7 @@ def collect(topics, now, reader=read_feed):
         except Exception as error:
             return [], name + ': ' + type(error).__name__
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=min(8, len(FEEDS))) as pool:
         for result, error in pool.map(fetch, FEEDS):
             rows.extend(result)
             if error:
