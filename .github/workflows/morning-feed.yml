@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  pages: write
 
 concurrency:
   group: public-morning-news-feed
@@ -32,4 +33,5 @@ jobs:
       - name: Publish only the public snapshot
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_PAGES_PUBLISH: '1'
         run: python3 tools/publish_morning_feed.py --input "$RUNNER_TEMP/candidates.json"

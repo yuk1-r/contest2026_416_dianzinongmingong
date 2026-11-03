@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request,urlopen
 
-BRANCH='news-feed'
+BRANCH='news-site'
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--input',type=Path,required=True)
     a=p.parse_args();data=a.input.read_bytes()
@@ -32,12 +32,26 @@ def main():
             if missing and error.code==404:return None
             raise RuntimeError('GitHub API HTTP '+str(error.code)) from None
     if api('/git/ref/heads/'+BRANCH,missing=True) is None:
-        api('/git/refs',{'ref':'refs/heads/'+BRANCH,'sha':os.environ['GITHUB_SHA']},'POST')
-    previous=api('/contents/candidates.json?ref='+BRANCH,missing=True)
-    body={'message':'Refresh public morning news candidates','branch':BRANCH,
-          'content':base64.b64encode(data).decode()}
-    if previous:body['sha']=previous['sha']
-    api('/contents/candidates.json',body,'PUT')
-    print('Published public feed snapshot to news-feed/candidates.json')
+        # An orphan data-only branch prevents the project tree being served
+        # by Pages. Never derive the publishing tree from the source branch.
+        entries=[]
+        for path,content in [('candidates.json',data),('.nojekyll',b'')]:
+            blob=api('/git/blobs',{'content':base64.b64encode(content).decode(),'encoding':'base64'},'POST')
+            entries.append({'path':path,'mode':'100644','type':'blob','sha':blob['sha']})
+        tree=api('/git/trees',{'tree':entries},'POST')
+        commit=api('/git/commits',{'message':'Initialize public news-only Pages branch',
+            'tree':tree['sha'],'parents':[]},'POST')
+        api('/git/refs',{'ref':'refs/heads/'+BRANCH,'sha':commit['sha']},'POST')
+    else:
+        previous=api('/contents/candidates.json?ref='+BRANCH,missing=True)
+        body={'message':'Refresh public morning news candidates','branch':BRANCH,
+              'content':base64.b64encode(data).decode()}
+        if previous:body['sha']=previous['sha']
+        api('/contents/candidates.json',body,'PUT')
+    if os.environ.get('GITHUB_PAGES_PUBLISH')=='1':
+        # GITHUB_TOKEN updates do not automatically trigger a branch Pages
+        # build. Request it explicitly with the workflow's pages permission.
+        api('/pages/builds',{},'POST')
+    print('Published public feed snapshot to news-site/candidates.json')
 
 if __name__=='__main__':main()
