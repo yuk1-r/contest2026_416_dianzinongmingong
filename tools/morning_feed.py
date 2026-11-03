@@ -78,27 +78,50 @@ def local_name(tag):
     return tag.rsplit('}', 1)[-1]
 
 
+def inner_text(node):
+    """Flatten Atom XHTML/HTML while keeping nested text and dropping scripts."""
+    parts, stack = [], [node]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, str):
+            parts.append(current)
+            continue
+        if local_name(current.tag) in ('script', 'style'):
+            if current.tail:
+                stack.append(current.tail)
+            continue
+        if current.text:
+            parts.append(current.text)
+        if current is not node and current.tail:
+            stack.append(current.tail)
+        for child in reversed(list(current)):
+            stack.append(child)
+    return ' '.join(parts)
+
+
 def child_text(item, *names):
-    for child in item:
-        if local_name(child.tag) in names:
-            value = (child.text or '').strip()
+    """Pick by field priority, never by the order fields appear in the document."""
+    for name in names:
+        for child in item:
+            if local_name(child.tag) != name:
+                continue
+            value = inner_text(child).strip()
             if value:
                 return value
     return ''
 
 
 def entry_link(item):
-    fallback = ''
+    """Only the article's alternate link counts; self/enclosure links are not articles."""
     for child in item:
         if local_name(child.tag) != 'link':
             continue
-        href = (child.get('href') or '').strip()
-        if not href:
+        if (child.get('rel') or 'alternate').strip().lower() != 'alternate':
             continue
-        if (child.get('rel') or 'alternate') == 'alternate':
+        href = (child.get('href') or '').strip()
+        if href:
             return href
-        fallback = fallback or href
-    return fallback
+    return ''
 
 
 def published_epoch(text):
@@ -181,16 +204,22 @@ def collect(topics, now, reader=read_feed):
             if error:
                 errors.append(error)
     selected, ids, titles = [], set(), set()
+    by_source = {}
     for row in sorted(rows, key=lambda x: x['published_at'], reverse=True):
         text = (row['title'] + ' ' + row['description']).lower()
         relevant = not terms or any(
             (re.search(r'(?<![a-z])' + re.escape(term) + r'(?![a-z])', text)
              if term.isascii() else term in text) for term in terms)
         title_key = re.sub(r'\W+', '', row['title'].lower())
-        if relevant and row['id'] not in ids and title_key not in titles:
-            selected.append(row)
-            ids.add(row['id'])
-            titles.add(title_key)
+        source = row['source']
+        if not relevant or row['id'] in ids or title_key in titles:
+            continue
+        if by_source.get(source, 0) >= 3:
+            continue
+        selected.append(row)
+        ids.add(row['id'])
+        titles.add(title_key)
+        by_source[source] = by_source.get(source, 0) + 1
         if len(selected) == 10:
             break
     if not selected and errors:
