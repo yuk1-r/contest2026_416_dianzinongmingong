@@ -1,0 +1,75 @@
+
+<<<port (re)opened #1 at 17:29:51.905>>>
+[01/01/70 00:00:12.679600] [ 8] [ap] fatfs_convert_result: ERROR: fatfs_convert_result 0x1027bef5 return 13
+rptun start
+kvdbd start
+kvdbd [10:255]
+NuttX BES NuttX EVB 0.0.0 dd92bcf4257-dirty Sep  6 2026 18:05:38 arm ap
+zhaoxi_ui [11:255]
+
+NuttShell (NSH)
+ap> [K[01/01/70 00:00:13.021400] [ 9] [ap] subsys_check_boot_struct: boot_addr=0x30b10000 magic=0xBE57EC1C
+[01/01/70 00:00:13.022500] [ 9] [ap] subsys_check_boot_struct: code_start=0x30B10011
+[01/01/70 00:00:13.023500] [ 9] [ap] M55C0-M55C1-OPEN:0: peer=0x21cbffa4 (n/a) local=0x21cbffa0 (0x211068e8)
+[01/01/70 00:00:13.024700] [ 9] [ap] M55C0-M55C1-OPEN:0: txChanCfg=0x201068e8 txMsgList=0x20106870 txMsgNum=5 manualRxDone=0
+[01/01/70 00:00:13.033900] [11] [ap] [LVGL] [User]	(14.048, +14048)	 check_stack_size: tid: 11, Stack size : 16240 lv_nuttx_entry.c:283
+[01/01/70 00:00:13.038700] [11] [ap] [LVGL] [User]	(14.052, +4)	 lv_nuttx_fbdev_set_file: The framebuffer device was opened successfully lv_nuttx_fbdev.c:104
+[01/01/70 00:00:13.040600] [11] [ap] [LVGL] [User]	(14.054, +2)	 lv_nuttx_fbdev_set_file: VideoInfo: lv_nuttx_fbdev.c:112
+[01/01/70 00:00:13.042000] [11] [ap] [LVGL] [User]	(14.056, +2)	 lv_nuttx_fbdev_set_file:       fmt: 21 lv_nuttx_fbdev.c:113
+[01/01/70 00:00:13.043700] [11] [ap] [LVGL] [User]	(14.058, +2)	 lv_nuttx_fbdev_set_file:      xres: 464 lv_nuttx_fbdev.c:114
+[01/01/70 00:00:13.045100] [11] [ap] [LVGL] [User]	(14.059, +1)	 lv_nuttx_fbdev_set_file:      yres: 454 lv_nuttx_fbdev.c:115
+[01/01/70 00:00:13.046500] [11] [ap] [LVGL] [User]	(14.060, +1)	 lv_nuttx_fbdev_set_file:   nplanes: 1 lv_nuttx_fbdev.c:116
+[01/01/70 00:00:13.048100] [11] [ap] [LVGL] [User]	(14.062, +2)	 fbdev_get_pinfo: PlaneInfo (plane 0): lv_nuttx_fbdev.c:278
+[01/01/70 00:00:13.049700] [11] [ap] [LVGL] [User]	(14.064, +2)	 fbdev_get_pinfo:     mem: 0x38263d00 lv_nuttx_fbdev.c:279
+[01/01/70 00:00:13.051000] [11] [ap] [LVGL] [User]	(14.065, +1)	 fbdev_get_pinfo:     fblen: 1685248 lv_nuttx_fbdev.c:280
+[01/01/70 00:00:13.052400] [11] [ap] [LVGL] [User]	(14.066, +1)	 fbdev_get_pinfo:    stride: 1856 lv_nuttx_fbdev.c:281
+[01/01/70 00:00:13.053700] [11] [ap] [LVGL] [User]	(14.068, +2)	 fbdev_get_pinfo:   display: 0 lv_nuttx_fbdev.c:282
+[01/01/70 00:00:13.055200] [11] [ap] [LVGL] [User]	(14.069, +1)	 fbdev_get_pinfo:       bpp: 32 lv_nuttx_fbdev.c:283
+[01/01/70 00:00:13.056500] [11] [ap] [LVGL] [User]	(14.070, +1)	 fbdev_get_pinfo: PlaneInfo (plane 0): lv_nuttx_fbdev.c:278
+[01/01/70 00:00:13.057900] [11] [ap] [LVGL] [User]	(14.072, +2)	 fbdev_get_pinfo:     mem: 0x38263d00 lv_nuttx_fbdev.c:279
+[01/01/70 00:00:13.062500] [11] [ap] [LVGL] [User]	(14.076, +4)	 fbdev_get_pinfo:     fblen: 1685248 lv_nuttx_fbdev.c:280
+[01/01/70 00:00:13.064200] [11] [ap] [LVGL] [User]	(14.078, +2)	 fbdev_get_pinfo:    stride: 1856 lv_nuttx_fbdev.c:281
+[01/01/70 00:00:13.065600] [11] [ap] [LVGL] [User]	(14.079, +1)	 fbdev_get_pinfo:   display: 0 lv_nuttx_fbdev.c:282
+[01/01/70 00:00:13.065800] [11] [ap] M55C0-M55C1-RX:0: Got peer=0x21cbffa4 (0x21c30cfc)
+[01/01/70 00:00:13.065900] [11] [ap] M55C0-M55C1-RX:0: Got rxChanCfg=0x21c30cfc rxMsgList=0x21c30c84 rxMsgNum=5
+[01/01/70 00:00:13.068800] [11] [ap] [LVGL] [User]	(14.082, +3)	 fbdev_get_pinfo:       bpp: 32 lv_nuttx_fbdev.c:283
+[01/01/70 00:00:13.072500] [11] [ap] [LVGL] [User]	(14.086, +4)	 fbdev_get_pinfo: PlaneInfo (plane 0): lv_nuttx_fbdev.c:278
+[01/01/70 00:00:13.074200] [11] [ap] [LVGL] [User]	(14.088, +2)	 fbdev_get_pinfo:     mem: 0x38263d00 lv_nuttx_fbdev.c:279
+[01/01/70 00:00:13.075500] [11] [ap] [LVGL] [User]	(14.089, +1)	 fbdev_get_pinfo:     fblen: 1685248 lv_nuttx_fbdev.c:280
+[01/01/70 00:00:13.076800] [11] [ap] [LVGL] [User]	(14.091, +2)	 fbdev_get_pinfo:    stride: 1856 lv_nuttx_fbdev.c:281
+[01/01/70 00:00:13.078100] [11] [ap] [LVGL] [User]	(14.092, +1)	 fbdev_get_pinfo:   display: 0 lv_nuttx_fbdev.c:282
+[01/01/70 00:00:13.079600] [11] [ap] [LVGL] [User]	(14.093, +1)	 fbdev_get_pinfo:       bpp: 32 lv_nuttx_fbdev.c:283
+[01/01/70 00:00:13.081100] [11] [ap] [LVGL] [User]	(14.095, +2)	 fbdev_init_mem2: Use of consecutive mem2 = 0x38331880, yoffset = 454 lv_nuttx_fbdev.c:347
+[01/01/70 00:00:13.083100] [11] [ap] [LVGL] [User]	(14.097, +2)	 lv_nuttx_fbdev_set_file: Resolution is set to 464x454 at 130dpi lv_nuttx_fbdev.c:162
+[01/01/70 00:00:13.085200] [11] [ap] [LVGL] [User]	(14.099, +2)	 lv_nuttx_touchscreen_create: touchscreen /dev/input0 opening lv_nuttx_touchscreen.c:79
+[01/01/70 00:00:13.087100] [11] [ap] [LVGL] [User]	(14.101, +2)	 lv_nuttx_touchscreen_create: touchscreen /dev/input0 open success, maxpoint 1 lv_nuttx_touchscreen.c:98
+[01/01/70 00:00:13.108900] [11] [ap] [LVGL] [User]	(14.123, +22)	 zhaoxi_ui_main: Zhaoxi UI started! zhaoxi_ui.c:286
+[01/01/70 00:00:13.167300] [11] [ap] PANDBG pan_display enter cnt=0 pinfo_yoffset=0 pinfo_fbmem=0x38263d00 started=1
+[01/01/70 00:00:13.168900] [11] [ap] PANDBG enqueue cnt=1 next_buf=0 state=1 addr=0x38263d00 yoffset=0 frame=1
+[01/01/70 00:00:13.182500] [11] [ap] PANDBG commit cnt=1 frame=1 addr=0x38263d00 yoffset=0 state=3
+[01/01/70 00:00:13.198700] [11] [ap] PANDBG framedone cnt=0 queue_cnt=1 state=4 frame=1
+[01/01/70 00:00:13.250500] [12] [ap] factory section has registered! So do not register again
+[01/01/70 00:00:13.262200] [12] [ap] [RPMSG] [  CALIB-TIMER  RPMSG ] :header->result=0, systick_hz=18185.71
+[01/01/70 00:00:13.275900] [12] [ap] [WF-RPMSG]### wifi_host_rpmsg_bind success name/rpmsg-wifi-ept
+[01/01/70 00:00:13.293300] [13] [ap] sys freq calc: 197000000
+[01/01/70 00:00:13.415700] [12] [ap] pmu_volt2temperature efuse:2547, calib:2547, volt:1109
+[01/01/70 00:00:13.416800] [12] [ap] pmu_volt2temperature Current temperatur:26
+[01/01/70 00:00:14.072400] [13] [ap] wifi_hal_init rsp:1
+[01/01/70 00:00:14.076500] [13] [ap] sys freq calc: 96000000
+[01/01/70 00:00:14.077200] [13] [ap] [WIFI] change status: IDLE->IDLE
+[01/01/70 00:00:14.077900] [13] [ap] Set iftype=0 PS mode 1
+[01/01/70 00:00:14.118000] [11] [ap] PANDBG pan_display enter cnt=0 pinfo_yoffset=454 pinfo_fbmem=0x38263d00 started=1
+[01/01/70 00:00:14.119600] [11] [ap] PANDBG enqueue cnt=1 next_buf=0 state=1 addr=0x38331880 yoffset=454 frame=2
+[01/01/70 00:00:14.129700] [ 0] [ap] PANDBG commit cnt=1 frame=2 addr=0x38331880 yoffset=454 state=3
+[01/01/70 00:00:14.137200] [13] [ap] [WIFI] change status: IDLE->IDLE
+[01/01/70 00:00:14.139100] [13] [ap] bwifi_event_task_deinit
+[01/01/70 00:00:14.140300] [14] [ap] [WIFI] status IDLE, event 20
+[01/01/70 00:00:14.141200] [14] [ap] wifi deinit event done event_thread Exit
+[01/01/70 00:00:14.142200] [13] [ap] bwifi deinit done.
+[01/01/70 00:00:14.146000] [ 0] [ap] PANDBG framedone cnt=1 queue_cnt=1 state=4 frame=2
+[01/01/70 00:00:15.127800] [ 0] [ap] PANDBG commit cnt=1 frame=3 addr=0x38263d00 yoffset=0 state=3
+[01/01/70 00:00:16.126500] [ 0] [ap] PANDBG commit cnt=1 frame=4 addr=0x38331880 yoffset=454 state=3
+[01/01/70 00:00:17.124600] [ 0] [ap] PANDBG commit cnt=1 frame=5 addr=0x38263d00 yoffset=0 state=3
+[01/01/70 00:00:18.122700] [ 0] [ap] PANDBG commit cnt=1 frame=6 addr=0x38331880 yoffset=454 state=3
+[01/01/70 00:00:19.137200] [ 0] [ap] PANDBG commit cnt=1 frame=7 addr=0x38263d00 yoffset=0 state=3
+
